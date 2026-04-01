@@ -1,0 +1,8 @@
+{
+  "title": "Color Collision",
+  "description": "Match the colors and avoid crashing in this fast-paced game.",
+  "keywords": ["color", "collision", "arcade", "fast", "reflexes"],
+  "category": "Arcade",
+  "author": "PewPlay",
+  "playMode": "SinglePlayer"
+}
