@@ -2,6 +2,32 @@
   "$schema": "https://raw.githubusercontent.com/pewplay/pewplay/main/schema/game.schema.json",
   "title": "Color Collision",
   "description": "Match the colors and avoid crashing in this fast-paced game.",
+  "about": "Color Collision is a browser game where you change the center balls to the color needed to survive the incoming collisions. Keep matching as the pace increases.\n\nStart a round in your browser and use the controls below to play.",
+  "howToPlay": "Change the center balls to the color needed to survive the incoming collisions. Keep matching as the pace increases.",
+  "controls": [
+    {
+      "input": "Click / tap",
+      "action": "Switch the center color"
+    },
+    {
+      "input": "Play / Retry",
+      "action": "Start another round"
+    }
+  ],
+  "tips": [
+    "Use click / tap to switch the center color.",
+    "Try another round to practice the timing and strategy."
+  ],
+  "faq": [
+    {
+      "question": "How do I play Color Collision?",
+      "answer": "Change the center balls to the color needed to survive the incoming collisions. Keep matching as the pace increases."
+    },
+    {
+      "question": "Can I play Color Collision in a browser?",
+      "answer": "Yes. Open the game page and play without installing an app."
+    }
+  ],
   "category": "Arcade",
   "tags": [
     "color",
@@ -10,6 +36,9 @@
     "fast",
     "reflexes"
   ],
-  "author": "PewPlay",
-  "playMode": "SinglePlayer"
+  "playMode": "SinglePlayer",
+  "orientation": "any",
+  "cover": "cover.png",
+  "draft": true,
+  "author": "PewPlay"
 }
