@@ -1,8 +1,15 @@
 {
+  "$schema": "https://raw.githubusercontent.com/pewplay/pewplay/main/schema/game.schema.json",
   "title": "Color Collision",
   "description": "Match the colors and avoid crashing in this fast-paced game.",
-  "keywords": ["color", "collision", "arcade", "fast", "reflexes"],
   "category": "Arcade",
+  "tags": [
+    "color",
+    "collision",
+    "arcade",
+    "fast",
+    "reflexes"
+  ],
   "author": "PewPlay",
   "playMode": "SinglePlayer"
 }
