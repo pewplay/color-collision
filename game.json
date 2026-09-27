@@ -1,44 +1,54 @@
 {
   "$schema": "https://raw.githubusercontent.com/pewplay/pewplay/main/schema/game.schema.json",
   "title": "Color Collision",
-  "description": "Match the colors and avoid crashing in this fast-paced game.",
-  "about": "Color Collision is a browser game where you change the center balls to the color needed to survive the incoming collisions. Keep matching as the pace increases.\n\nStart a round in your browser and use the controls below to play.",
-  "howToPlay": "Change the center balls to the color needed to survive the incoming collisions. Keep matching as the pace increases.",
+  "description": "Swap the colors of two central balls so every incoming ball hits its matching color in this fast free one-tap reflex game in your browser.",
+  "about": "Color Collision is a one-button reflex game about pure focus. Two balls, one red and one blue, sit in the middle of the screen. New balls fly in from the top and from the bottom, and each one must hit a central ball of the same color. A single click or tap swaps the colors of the pair, so you have to read every incoming ball and decide in a split second whether to switch.\n\nEvery correct match bursts into sparks and adds 10 points, and the score takes on the color of the last ball you matched. One wrong collision and everything explodes: game over. The balls keep getting faster as time passes, so a calm start quickly turns into a real test of timing.\n\nIt is perfect for short sessions on a phone or a computer and for anyone who loves simple rules with rising pressure.",
+  "howToPlay": "Press Play, then watch the balls coming from above and below. Click or tap anywhere to swap the colors of the two central balls so each incoming ball hits the one with the same color. Each match is worth 10 points, and a single mismatch ends the game.",
   "controls": [
     {
-      "input": "Click / tap",
-      "action": "Switch the center color"
+      "input": "Click / Tap",
+      "action": "Swap the colors of the central balls"
     },
     {
-      "input": "Play / Retry",
-      "action": "Start another round"
+      "input": "Click / Tap buttons",
+      "action": "Start the game and retry after a crash"
     }
   ],
   "tips": [
-    "Use click / tap to switch the center color.",
-    "Try another round to practice the timing and strategy."
+    "Balls from the top hit the upper central ball and balls from the bottom hit the lower one, so only check the ball that is about to land.",
+    "Decide early: swapping at the last moment is risky once the balls speed up.",
+    "Remember that a swap changes both central balls at once, so never tap just out of habit.",
+    "Keep your eyes on the center of the screen, where every collision happens."
   ],
   "faq": [
     {
-      "question": "How do I play Color Collision?",
-      "answer": "Change the center balls to the color needed to survive the incoming collisions. Keep matching as the pace increases."
+      "question": "Is Color Collision free to play?",
+      "answer": "Yes. It is completely free and runs in your browser with no download or sign-up."
     },
     {
-      "question": "Can I play Color Collision in a browser?",
-      "answer": "Yes. Open the game page and play without installing an app."
+      "question": "Can I play on a phone or tablet?",
+      "answer": "Yes. A single tap anywhere on the screen swaps the colors, so it works well with touch."
+    },
+    {
+      "question": "Does the game get harder?",
+      "answer": "Yes. The incoming balls gradually speed up the longer you survive, until they reach a top speed."
     }
   ],
   "category": "Arcade",
   "tags": [
-    "color",
-    "collision",
+    "reflex",
+    "one tap",
+    "color matching",
     "arcade",
-    "fast",
-    "reflexes"
+    "focus"
   ],
+  "author": "PewPlay",
   "playMode": "SinglePlayer",
   "orientation": "any",
   "cover": "cover.png",
-  "draft": true,
-  "author": "PewPlay"
+  "screenshots": [
+    "screenshots/1.png",
+    "screenshots/2.png",
+    "screenshots/3.png"
+  ]
 }

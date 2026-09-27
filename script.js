@@ -1,4 +1,3 @@
-console.clear()
 
 // Utility Functions -->
 
@@ -216,8 +215,23 @@ class Ball{
 	}
 }
 
-// calling the spliiting function
-Splitting()
+// calling the spliiting function (tiny fallback if the CDN script could not load)
+if (window.Splitting) {
+	Splitting()
+} else {
+	document.querySelectorAll('[data-splitting]').forEach(el => {
+		const text = el.textContent
+		el.textContent = ''
+		;[...text].forEach((ch, i) => {
+			const span = document.createElement('span')
+			span.className = 'char'
+			span.dataset.char = ch
+			span.textContent = ch
+			span.style.setProperty('--char-index', i)
+			el.appendChild(span)
+		})
+	})
+}
 
 // Selecting the canvas
 const canvas = document.querySelector('[data-canvas]')
@@ -441,19 +455,19 @@ setInterval(() => {
 // EVENT LISTENERS
 
 // Clicking on the canvas would change the color
-canvas.addEventListener('mousedown', () => {
+canvas.addEventListener('pointerdown', () => {
 	redBall.change(colors[0], colors[1])
 	blueBall.change(colors[1], colors[0])
 })
 
 // retry again by clicking the retry button
-retryBtn.addEventListener('mousedown', () => {
+retryBtn.addEventListener('pointerdown', () => {
 	failed = false
 	init()
 })
 
 // Start playing now.
-playBtn.addEventListener('mousedown', () => {
+playBtn.addEventListener('pointerdown', () => {
 	startScreen.classList.add('hide')
 	init()
 })
