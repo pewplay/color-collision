@@ -12,7 +12,22 @@ body {
   justify-content: center;
   align-items: center;
   font-family: Montserrat, sans-serif;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
  }
+
+canvas {
+  touch-action: none;
+}
+
+html {
+  overflow: hidden;
+}
+
+body {
+  position: relative;
+  height: 100vh;
+}
 
 .highlight {
   font-weight: 900;
@@ -105,6 +120,7 @@ body {
  
  
   height: 250px;
+  max-width: 600px;
   padding: 10px;
   display: flex;
   flex-direction: column;
