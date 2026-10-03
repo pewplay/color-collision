@@ -1,482 +1,517 @@
+(function () {
+	'use strict';
 
-// Utility Functions -->
+	// ---------------------------------------------------------------------
+	// Storage (all keys prefixed with the game slug)
+	// ---------------------------------------------------------------------
+	var KEY_BEST = 'color-collision:best';
+	var KEY_MUTED = 'color-collision:muted';
 
-// This func. gets a random float between the given range
-function randomFloatFromRange(min, max){
-	return (Math.random() * (max - min + 1) + min);
-}
+	function load(key, fallback) {
+		try {
+			var v = localStorage.getItem(key);
+			return v === null ? fallback : v;
+		} catch (e) { return fallback; }
+	}
+	function save(key, value) {
+		try { localStorage.setItem(key, String(value)); } catch (e) { /* storage unavailable */ }
+	}
 
-// This func. gets a random item from a given array
-function randomFromArray(arr){
-	return arr[Math.floor(Math.random() * arr.length)]
-}
+	// ---------------------------------------------------------------------
+	// Utility functions
+	// ---------------------------------------------------------------------
+	function rand(min, max) { return Math.random() * (max - min) + min; }
+	function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+	function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 
-// This func. gets the distance between two given points
-function getDist(x1, y1, x2, y2){
-	return Math.sqrt(Math.pow((x2 - x1), 2) + Math.pow((y2 - y1), 2))
-}
+	// ---------------------------------------------------------------------
+	// DOM
+	// ---------------------------------------------------------------------
+	var canvas = document.getElementById('game');
+	var ctx = canvas.getContext('2d');
+	var hud = document.getElementById('hud');
+	var scoreEl = document.getElementById('score');
+	var bestEl = document.getElementById('best');
+	var pauseBtn = document.getElementById('pauseBtn');
+	var muteBtn = document.getElementById('muteBtn');
+	var startScreen = document.getElementById('startScreen');
+	var startBest = document.getElementById('startBest');
+	var playBtn = document.getElementById('playBtn');
+	var overScreen = document.getElementById('overScreen');
+	var overTitle = document.getElementById('overTitle');
+	var finalScore = document.getElementById('finalScore');
+	var finalBest = document.getElementById('finalBest');
+	var retryBtn = document.getElementById('retryBtn');
+	var pauseScreen = document.getElementById('pauseScreen');
+	var resumeBtn = document.getElementById('resumeBtn');
 
+	// Split the "Game Over!" title into animated characters
+	(function splitTitle() {
+		var text = overTitle.textContent;
+		overTitle.textContent = '';
+		overTitle.setAttribute('aria-label', text);
+		Array.prototype.forEach.call(text, function (ch, i) {
+			var span = document.createElement('span');
+			span.className = 'char';
+			span.setAttribute('aria-hidden', 'true');
+			span.textContent = ch === ' ' ? ' ' : ch;
+			span.style.setProperty('--char-index', i);
+			overTitle.appendChild(span);
+		});
+	})();
 
-// PARTICLE CLASS
-class Particle{
-	constructor(canvas, ctx, x, y, radius, color, velX, velY){
-		this.canvas = canvas
-		this.ctx = ctx
-		this.x = x
-		this.y = y
-		this.velocity = {
-			x: (Math.random() - 0.5) * velX,
-			y: (Math.random() - 0.5) * velY,
+	// ---------------------------------------------------------------------
+	// Sound (Web Audio, created on the first user gesture)
+	// ---------------------------------------------------------------------
+	var audio = null;
+	var muted = load(KEY_MUTED, '0') === '1';
+
+	function ensureAudio() {
+		if (audio) {
+			if (audio.state === 'suspended') audio.resume();
+			return;
 		}
-		this.radius = radius
-		this.color = color
-		this.timeToLive = 250
-		this.opacity = 1
-		this.gravity = 0.25
+		var AC = window.AudioContext || window.webkitAudioContext;
+		if (!AC) return;
+		try { audio = new AC(); } catch (e) { audio = null; }
 	}
-	draw(){ // This func. draws the particle
-		this.ctx.save()
-		this.ctx.beginPath()
-		this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false)
-		this.ctx.fillStyle = this.color
-		this.ctx.shadowColor = this.color
-		this.shadowBlur = 25
-		this.ctx.globalAlpha = this.opacity
-		this.ctx.fill()
-		this.ctx.closePath()
-		this.ctx.restore()        
-	}
-	update(){ // This func. updates the particle
-		this.x += this.velocity.x
-		this.y += this.velocity.y
-		this.velocity.y += this.gravity
 
-		this.timeToLive -= 1
-		this.opacity -= 1 / this.timeToLive
-		this.draw()
+	function tone(freq, dur, type, vol, slide) {
+		if (muted || !audio || audio.state !== 'running') return;
+		var t = audio.currentTime;
+		var o = audio.createOscillator();
+		var g = audio.createGain();
+		o.type = type || 'sine';
+		o.frequency.setValueAtTime(freq, t);
+		if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+		g.gain.setValueAtTime(0.0001, t);
+		g.gain.exponentialRampToValueAtTime(vol || 0.15, t + 0.01);
+		g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+		o.connect(g).connect(audio.destination);
+		o.start(t);
+		o.stop(t + dur + 0.02);
 	}
-}
 
-// BALL CLASS
-class Ball{
-	constructor(canvas, ctx, x, y, radius, color, particlesArr, velX, velY, dontCheck){
-		this.canvas = canvas
-		this.ctx = ctx
-		this.x = x
-		this.y = y
-		this.radius = radius
-		this.color = color
-		this.velocity = {
-			x: velX || 0,
-			y: velY || 0
-		}
-		this.acc = 0.01
-		this.origin = { x: x, y: y }
-		this.dontCheck = dontCheck
-		this.opacity = 1
-		this.particlesArr = particlesArr
-		this.collided = false
+	function noiseBurst(dur, vol) {
+		if (muted || !audio || audio.state !== 'running') return;
+		var len = Math.floor(audio.sampleRate * dur);
+		var buf = audio.createBuffer(1, len, audio.sampleRate);
+		var d = buf.getChannelData(0);
+		for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+		var src = audio.createBufferSource();
+		var g = audio.createGain();
+		var f = audio.createBiquadFilter();
+		f.type = 'lowpass';
+		f.frequency.value = 900;
+		g.gain.value = vol;
+		src.buffer = buf;
+		src.connect(f).connect(g).connect(audio.destination);
+		src.start();
 	}
-	draw(){ // This func. draws the ball
-		this.ctx.save()
-		this.ctx.beginPath()
-		this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false)
-		this.ctx.fillStyle = this.color
-		this.ctx.shadowColor = this.color
-		this.shadowBlur = 25
-		this.ctx.shadowOffsetX = 0;
-		this.ctx.shadowOffsetY = 0;
-		this.ctx.globalAlpha = this.opacity
-		this.ctx.fill()
-		this.ctx.closePath()
-		this.ctx.restore()
-	}
-	// This func. updates the ball. The first argument of this func. takes an array where all the insrtance of balls are stored
-	// The second argument is opotional [default is False]. If set to true then the position of the ball changes with its respective Velocity
-	update(ballsArr, updateVel = false){
-		if(this.origin.y <= 0){
-			this.y += this.velocity.y
-		}
-		else if(this.origin.y >= this.canvas.height){
-			this.y -= this.velocity.y
-		}
-		if(updateVel == true){
-			this.y += this.velocity.y
-			this.x += this.velocity.x
-		}
 
-		this.collisionDetect(ballsArr)
-		this.draw()
+	var sfx = {
+		swap: function () { tone(520, 0.07, 'triangle', 0.08, 680); },
+		match: function (color) { tone(color === COLORS[0] ? 784 : 988, 0.16, 'sine', 0.16, color === COLORS[0] ? 1046 : 1318); },
+		crash: function () { noiseBurst(0.6, 0.5); tone(160, 0.5, 'sawtooth', 0.12, 40); }
+	};
+
+	function updateMuteButton() {
+		muteBtn.classList.toggle('muted', muted);
+		muteBtn.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
 	}
-	// This func. is used to detect the collisions bettween any two balls
-	// The func. takes an argument which is the array where al the balls are stored
-	collisionDetect(ballsArr){
-		for(let i = 0; i < ballsArr.length; i++){
-			if(this === ballsArr[i] || this.dontCheck) continue
-			let distBetweenPoints = getDist(this.x, this.y, ballsArr[i].x, ballsArr[i].y) - this.radius * 2
-			if(distBetweenPoints < 0){
-				if(this.color == ballsArr[i].color){
-					for(let j = 0; j < Math.floor(randomFloatFromRange(20, 25)); j++){
-						this.break(this.particlesArr, 0.4, 0.8)
-						this.collided = true
+
+	// ---------------------------------------------------------------------
+	// Canvas sizing (fills the whole window, sharp on high-DPI screens)
+	// ---------------------------------------------------------------------
+	var W = 0, H = 0, DPR = 1, U = 1;
+	var background = null;
+
+	function resize() {
+		var oldW = W, oldH = H;
+		W = Math.max(1, window.innerWidth);
+		H = Math.max(1, window.innerHeight);
+		DPR = Math.min(window.devicePixelRatio || 1, 3);
+		canvas.width = Math.round(W * DPR);
+		canvas.height = Math.round(H * DPR);
+		ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+		U = clamp(Math.min(W, H) / 560, 0.85, 1.7);
+		background = ctx.createLinearGradient(0, 0, W, H);
+		background.addColorStop(0, '#2c3e50');
+		background.addColorStop(1, '#34495e');
+		if (oldW && oldH) relayout(oldW, oldH);
+		// resizing clears the canvas: redraw immediately if the loop is not drawing (paused)
+		if (paused && typeof render === 'function') render(0);
+	}
+
+	// ---------------------------------------------------------------------
+	// Game objects
+	// ---------------------------------------------------------------------
+	var COLORS = ['#e74c3c', '#3498db']; // red, blue
+	var BASE_RADIUS = 18;
+	var BASE_SEPARATION = 35;
+	var REF_TRAVEL = 339; // travel distance (px) the original speeds were tuned for
+
+	function Particle(x, y, radius, color, spread, gravity) {
+		this.x = x;
+		this.y = y;
+		this.vx = (Math.random() - 0.5) * rand(-spread, spread);
+		this.vy = (Math.random() - 0.5) * rand(-spread, spread);
+		this.radius = radius;
+		this.color = color;
+		this.ttl = 250;
+		this.opacity = 1;
+		this.gravity = gravity;
+	}
+	Particle.prototype.update = function (f) {
+		this.x += this.vx * f * U;
+		this.y += this.vy * f * U;
+		this.vy += this.gravity * f;
+		this.ttl -= f;
+		this.opacity -= f / Math.max(this.ttl, 1);
+	};
+	Particle.prototype.draw = function () {
+		if (this.opacity <= 0) return;
+		ctx.globalAlpha = Math.max(0, this.opacity);
+		ctx.fillStyle = this.color;
+		ctx.beginPath();
+		ctx.arc(this.x, this.y, this.radius * U, 0, Math.PI * 2);
+		ctx.fill();
+	};
+
+	function drawBall(x, y, r, color, alpha) {
+		ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+		ctx.fillStyle = color;
+		ctx.beginPath();
+		ctx.arc(x, y, r, 0, Math.PI * 2);
+		ctx.fill();
+	}
+
+	// Bouncing decoration balls (start screen)
+	var floaters = [];
+	function initFloaters() {
+		floaters = [];
+		for (var i = 0; i < 20; i++) {
+			floaters.push({
+				x: W / 2, y: H / 2,
+				vx: rand(-5, 5), vy: rand(-5, 5),
+				r: rand(5, 10),
+				color: pick(COLORS)
+			});
+		}
+	}
+	function updateFloaters(f) {
+		floaters.forEach(function (b) {
+			var r = b.r * U;
+			b.x += b.vx * f * U;
+			b.y += b.vy * f * U;
+			if (b.x - r < 0) { b.x = r; b.vx = Math.abs(b.vx); }
+			if (b.x + r > W) { b.x = W - r; b.vx = -Math.abs(b.vx); }
+			if (b.y - r < 0) { b.y = r; b.vy = Math.abs(b.vy); }
+			if (b.y + r > H) { b.y = H - r; b.vy = -Math.abs(b.vy); }
+			drawBall(b.x, b.y, r, b.color, 1);
+		});
+	}
+
+	// ---------------------------------------------------------------------
+	// State
+	// ---------------------------------------------------------------------
+	var STATE_MENU = 0, STATE_PLAY = 1, STATE_DYING = 2, STATE_OVER = 3;
+	var state = STATE_MENU;
+	var paused = false;
+	var score = 0;
+	var best = parseInt(load(KEY_BEST, '0'), 10) || 0;
+	var scoreColor = '#fff';
+	var topColor, bottomColor;       // colors of the two central balls
+	var incoming = null;             // { fromTop, y, color }
+	var spawnTimer = 0;
+	var speed = 2.5;                 // original px-per-frame speed, scaled to the screen
+	var speedTimer = 0;
+	var particles = [];
+	var dyingTimer = 0;
+	var overShownAt = 0;
+	var centralAlpha = 1;
+	var shake = 0;
+
+	function radius() { return BASE_RADIUS * U; }
+	function separation() { return BASE_SEPARATION * U; }
+	function topY() { return H / 2 - separation(); }
+	function bottomY() { return H / 2 + separation(); }
+
+	function relayout(oldW, oldH) {
+		floaters.forEach(function (b) { b.x = b.x / oldW * W; b.y = b.y / oldH * H; });
+		particles.forEach(function (p) { p.x = p.x / oldW * W; p.y = p.y / oldH * H; });
+		if (incoming) {
+			// keep the incoming ball at the same distance from the center, relative to the screen
+			var frac = clamp((incoming.y - oldH / 2) / (oldH / 2), -1.5, 1.5);
+			incoming.y = H / 2 + frac * (H / 2);
+		}
+	}
+
+	function setScore(v, color) {
+		score = v;
+		scoreEl.textContent = score;
+		if (color) {
+			scoreColor = color;
+			scoreEl.parentNode.style.color = color;
+			scoreEl.classList.remove('bump');
+			void scoreEl.offsetWidth;
+			scoreEl.classList.add('bump');
+		}
+	}
+
+	function updateBest() {
+		bestEl.textContent = best;
+		startBest.textContent = best > 0 ? 'Best score: ' + best : '';
+	}
+
+	function startGame() {
+		ensureAudio();
+		state = STATE_PLAY;
+		paused = false;
+		particles = [];
+		incoming = null;
+		spawnTimer = 0.35;
+		speed = 2.5;
+		speedTimer = 0;
+		centralAlpha = 1;
+		topColor = COLORS[1];
+		bottomColor = COLORS[0];
+		scoreColor = '#fff';
+		scoreEl.parentNode.style.color = '#fff';
+		setScore(0);
+		startScreen.classList.add('hide');
+		overScreen.classList.add('hide');
+		pauseScreen.classList.add('hide');
+		hud.classList.remove('playing-hidden');
+	}
+
+	function swapColors() {
+		if (state !== STATE_PLAY || paused) return;
+		var t = topColor;
+		topColor = bottomColor;
+		bottomColor = t;
+		sfx.swap();
+	}
+
+	function spawnBall() {
+		var fromTop = Math.random() < 0.5;
+		incoming = {
+			fromTop: fromTop,
+			y: fromTop ? -50 * U : H + 50 * U,
+			color: pick(COLORS)
+		};
+	}
+
+	function matchBurst(x, y, color) {
+		var n = Math.floor(rand(20, 26));
+		for (var i = 0; i < n; i++) particles.push(new Particle(x, y, rand(0.4, 0.8), color, 20, 0.25));
+	}
+
+	function explode() {
+		var balls = [
+			{ x: W / 2, y: topY(), c: topColor },
+			{ x: W / 2, y: bottomY(), c: bottomColor },
+			{ x: W / 2, y: incoming.y, c: incoming.color }
+		];
+		var n = Math.floor(rand(40, 55));
+		for (var i = 0; i < n; i++) {
+			balls.forEach(function (b) {
+				particles.push(new Particle(b.x, b.y, rand(2, 5), b.c, 20, 0));
+			});
+		}
+		incoming = null;
+		centralAlpha = 0;
+		shake = 14;
+		sfx.crash();
+		state = STATE_DYING;
+		dyingTimer = 0.9;
+		hud.classList.add('playing-hidden');
+	}
+
+	function showGameOver() {
+		state = STATE_OVER;
+		var record = score > best;
+		if (record) {
+			best = score;
+			save(KEY_BEST, best);
+		}
+		updateBest();
+		finalScore.textContent = score;
+		finalBest.textContent = record && score > 0 ? 'New best score!' : 'Best score: ' + best;
+		finalBest.classList.toggle('record', record && score > 0);
+		overScreen.classList.remove('hide');
+		overShownAt = performance.now();
+	}
+
+	function setPaused(p) {
+		if (state !== STATE_PLAY) return;
+		paused = p;
+		pauseScreen.classList.toggle('hide', !p);
+		if (!p) last = performance.now();
+	}
+
+	// ---------------------------------------------------------------------
+	// Main loop
+	// ---------------------------------------------------------------------
+	var last = performance.now();
+
+	function update(dt) {
+		var f = dt * 60; // original game ran in 60fps frame steps
+
+		if (state === STATE_PLAY) {
+			// The balls keep getting faster (as in the original: +0.08 every 1.5 s, up to ~7)
+			speedTimer += dt;
+			while (speedTimer >= 1.5) {
+				speedTimer -= 1.5;
+				if (speed <= 7) speed += 0.08;
+			}
+
+			if (!incoming) {
+				spawnTimer -= dt;
+				if (spawnTimer <= 0) spawnBall();
+			} else {
+				var r = radius();
+				var travel = H / 2 - separation() - 2 * r + 50 * U;
+				var pxPerFrame = speed * travel / REF_TRAVEL;
+				incoming.y += (incoming.fromTop ? 1 : -1) * pxPerFrame * f;
+				var targetY = incoming.fromTop ? topY() : bottomY();
+				var targetColor = incoming.fromTop ? topColor : bottomColor;
+				if (Math.abs(incoming.y - targetY) < 2 * r) {
+					if (incoming.color === targetColor) {
+						var cy = incoming.fromTop ? targetY - r : targetY + r;
+						matchBurst(W / 2, cy, incoming.color);
+						setScore(score + 10, incoming.color);
+						sfx.match(incoming.color);
+						incoming = null;
+						spawnTimer = rand(0.08, 0.3);
+					} else {
+						explode();
 					}
-					this.opacity = 0
-				}
-				else if(this.color != ballsArr[i].color){
-					for(let j = 0; j < Math.floor(randomFloatFromRange(40, 55)); j++){
-						ballsArr.forEach((ball) => {
-							ball.opacity = 0
-							this.break(this.particlesArr, 2, 5, ball.x, ball.y, ball.color)
-						})
-						this.particlesArr.forEach((particle) => {
-							particle.gravity = 0
-						})
-					}
 				}
 			}
-		}
-	}
-	// This func. is used to detect if the ball hits any of the corners of the canvas
-	// If hits any of the canvas sides then the ball would change its velocity direction
-	edgeDetect(){
-		if (this.y + this.radius + this.velocity.y > this.canvas.height) {
-			this.velocity.y *= -1
-		}
-		else if(this.y - this.radius <= 0){
-			this.velocity.y *= -1
+		} else if (state === STATE_DYING) {
+			dyingTimer -= dt;
+			if (dyingTimer <= 0) showGameOver();
 		}
 
-		if (this.x + this.radius + this.velocity.x > this.canvas.width) {
-			this.velocity.x *= -1
+		for (var i = particles.length - 1; i >= 0; i--) {
+			particles[i].update(f);
+			if (particles[i].opacity <= 0.05 || particles[i].ttl <= 1) particles.splice(i, 1);
 		}
-		else if (this.x - this.radius <= 0) {
-			this.velocity.x *= -1
-		}
+		if (shake > 0) shake = Math.max(0, shake - f * 0.8);
 	}
-	// This function is used to show that when any ball hits each other then they create many small particles [Which looks kinda like sparks]
-	// This func. takes 6 arguments [too many]
-	// The first accepts an array where the sparks OR the small particles would be stored
-	// The second and the third argument is nothing but accepts a min and max radius
-	// The forth and fifth args. tahes where the sparks would be spawned
-	// The sixth is nothing but 'c' which means color. I want to make the sparks the same color as the ball
-	break(arr, minRadius, maxRadius, x, y, c){
-		var randRadius = randomFloatFromRange(minRadius, maxRadius)
-		var randVel = {
-			x: randomFloatFromRange(-20, 20),
-			y: randomFloatFromRange(-20, 20),
-		}
-		if(this.origin.y <= 0){
-			let spawnX , spawnY
-			let color
-			if(x && y){
-				spawnX = x
-				spawnY = y
-				color = c
-			}else{
-				spawnX = this.x
-				spawnY = this.y + this.radius
-				color = this.color
+
+	function render(dt) {
+		ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+		ctx.globalAlpha = 1;
+		ctx.fillStyle = background;
+		ctx.fillRect(0, 0, W, H);
+
+		if (shake > 0) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+
+		if (state === STATE_MENU) {
+			updateFloaters(dt * 60);
+		} else {
+			// guide line along the path of the incoming balls
+			ctx.globalAlpha = 0.06;
+			ctx.fillStyle = '#fff';
+			ctx.fillRect(W / 2 - 1, 0, 2, H);
+
+			var r = radius();
+			if (centralAlpha > 0) {
+				drawBall(W / 2, topY(), r, topColor, centralAlpha);
+				drawBall(W / 2, bottomY(), r, bottomColor, centralAlpha);
 			}
-			arr.push(
-				new Particle(
-					this.canvas, this.ctx,
-					spawnX, spawnY,
-					randRadius, color , randVel.x, randVel.y
-				)
-			)
-		}else{
-			let spawnX , spawnY
-			let color
-			if(x && y){
-				spawnX = x
-				spawnY = y
-				color = c
-			}else{
-				spawnX = this.x
-				spawnY = this.y - this.radius
-				color = this.color
-			}
-			arr.push(
-				new Particle(
-					this.canvas, this.ctx,
-					spawnX, spawnY,
-					randRadius, color , randVel.x, randVel.y
-				)
-			)
+			if (incoming) drawBall(W / 2, incoming.y, r, incoming.color, 1);
 		}
-	}
-	// When this func. is called with two colors passed as args. then it swaps the color between the two color provided
-	change(colorDefault, colorTochange){
-		if(this.color != colorDefault){
-			this.color = colorDefault
-		}else{
-			this.color = colorTochange
-		}
-	}
-}
 
-// calling the spliiting function (tiny fallback if the CDN script could not load)
-if (window.Splitting) {
-	Splitting()
-} else {
-	document.querySelectorAll('[data-splitting]').forEach(el => {
-		const text = el.textContent
-		el.textContent = ''
-		;[...text].forEach((ch, i) => {
-			const span = document.createElement('span')
-			span.className = 'char'
-			span.dataset.char = ch
-			span.textContent = ch
-			span.style.setProperty('--char-index', i)
-			el.appendChild(span)
-		})
-	})
-}
-
-// Selecting the canvas
-const canvas = document.querySelector('[data-canvas]')
-// getting its context
-const ctx = canvas.getContext('2d')
-
-// Setting its width and height
-let canvasMaxHeight = window.innerHeight;
-let canvasWidth = window.innerWidth;
-let canvasHeight = window.innerHeight;
-canvas.width = canvasWidth
-canvas.height = canvasHeight
-
-let retryBtn = document.querySelector('.retry-btn')
-let retryText = document.querySelector('.retry-text')
-let playBtn = document.querySelector('.btn.play')
-let startScreen = document.querySelector('.start-screen')
-
-
-// Initializing everything
-
-let balls = [], // balls array
-	 particles = [] // sparks array
-var redBall, blueBall // the TWO cantral balls
-var separation = 35 // separation between central balls
-var globalRadius = 18 // radius for all the Balls
-let generateBall = false // generate a new ball or not
-let timeInterval
-let velocityOfBall // velocity of the ball
-let failed = false // game failed or not
-let timer = 0 // timer (increments every 1ms)
-let score = 0 // score counter
-let fillColor // Text fill color
-// colors array
-var colors = ['#e74c3c', '#3498db']
-// random points where the ball would generate and start moving
-let randPoints;
-
-// Function that initializes the canvas
-function init(){
-	balls = []
-	particles = []
-	uselessBalls = []
-	generateBall = true
-	timeInterval = 2000
-	timer = 0
-	velocityOfBall = 2.5
-	score = 0
-	fillColor = '#fff'
-
-	blueBall = new Ball(
-		canvas, ctx,
-		canvasWidth/2, canvasHeight/2 - separation,
-		globalRadius, colors[1], particles, 0, 0, true
-	)
-	redBall = new Ball(
-		canvas, ctx,
-		canvasWidth/2, canvasHeight/2 + separation,
-		globalRadius, colors[0], particles, 0, 0, true
-	)
-	balls.push(redBall, blueBall)
-
-	randPoints = [
-		{
-			x: canvas.width / 2,
-			y: -50
-		},
-		{
-			x: canvas.width / 2,
-			y: canvas.height + 50
-		}
-	]
-}
-
-// This is an array for a bunch of useless balls on the start of the game
-var uselessBalls = []
-// This function will push many useless balls balls to the useless array and then push all the useless balls to the default ballas array
-function initUseless(){
-	for(let i = 0; i < 20; i++){
-		let randVelXY = {
-			x: randomFloatFromRange(-5, 5),
-			y: randomFloatFromRange(-5, 5)
-		}
-		let r = randomFloatFromRange(5, 10)
-		uselessBalls.push(
-			new Ball(
-				canvas, ctx, canvasWidth / 2, canvasHeight / 2,
-				r, colors[Math.floor(Math.random() * colors.length)],
-				particles, randVelXY.x, randVelXY.y, true
-			)
-		)
-	}
-	balls.push([...uselessBalls])
-}
-// calling it on execution of code
-initUseless()
-
-
-// initialiazing the background in a variable
-var background = BG_Gradient('#2c3e50', '#34495e')
-
-// this func. calls itself again and again every 60ms and is the reason you can play this game
-function loop(){
-	// func. that will call itself
-	requestAnimationFrame(loop)
-
-	// seting the background
-	ctx.fillStyle = background
-	ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-	// setting the scorecard
-	ctx.fillStyle = fillColor
-	ctx.font = '21px sans-serif'
-	ctx.fillText(`SCORE : ${score.toString()}`, 20, 35)
-
-	// updating every uselessballs
-	uselessBalls.forEach(ball => {
-		ball.update(balls, true)
-		ball.edgeDetect()
-	})
-	if(uselessBalls.length != 0){
-		return
+		particles.forEach(function (p) { p.draw(); });
+		ctx.globalAlpha = 1;
 	}
 
-	// updating every balls in the balls array
-	if(balls.length != 0){
-		balls.forEach((ball, index) => {
-			ball.update(balls)
-			if(ball.collided == true){
-				score += 10
-				fillColor = ball.color
+	function frame(now) {
+		requestAnimationFrame(frame);
+		var dt = Math.min((now - last) / 1000, 1 / 20);
+		last = now;
+		if (paused) return;
+		update(dt);
+		render(dt);
+	}
+
+	// ---------------------------------------------------------------------
+	// Input
+	// ---------------------------------------------------------------------
+	canvas.addEventListener('pointerdown', function (e) {
+		e.preventDefault();
+		ensureAudio();
+		if (state === STATE_PLAY) swapColors();
+	});
+
+	function bindButton(el, fn) {
+		el.addEventListener('pointerdown', function (e) { e.stopPropagation(); ensureAudio(); });
+		el.addEventListener('click', function (e) { e.preventDefault(); fn(); el.blur(); });
+	}
+
+	bindButton(playBtn, startGame);
+	bindButton(retryBtn, function () {
+		if (performance.now() - overShownAt > 350) startGame();
+	});
+	bindButton(resumeBtn, function () { setPaused(false); });
+	bindButton(pauseBtn, function () { setPaused(!paused); });
+	bindButton(muteBtn, function () {
+		muted = !muted;
+		save(KEY_MUTED, muted ? '1' : '0');
+		updateMuteButton();
+	});
+
+	window.addEventListener('keydown', function (e) {
+		var k = e.key;
+		if (k === ' ' || k === 'Spacebar' || k === 'Enter' || k === 'ArrowUp' || k === 'ArrowDown') {
+			e.preventDefault();
+			if (e.repeat) return;
+			ensureAudio();
+			if (state === STATE_PLAY) {
+				if (paused) setPaused(false); else swapColors();
+			} else if (state === STATE_MENU) {
+				startGame();
+			} else if (state === STATE_OVER && performance.now() - overShownAt > 500) {
+				startGame();
 			}
-			if(ball.opacity <= 0){
-				ball.dontCheck = true
-				balls.splice(index, 1)
-			}
-		})
-	}
-	if(balls.length == 0 || balls.length == 1){
-		failed = true
-		generateBall = false
-	}
-	if(balls.length == 2){
-		generateBall = true
-	}
-	if(timeInterval % timer == 0 && generateBall == true){
-		generateBall = false
-		pushNewBalls()
-	}
+		} else if (k === 'p' || k === 'P' || k === 'Escape') {
+			if (state === STATE_PLAY) setPaused(!paused);
+		} else if (k === 'm' || k === 'M') {
+			muted = !muted;
+			save(KEY_MUTED, muted ? '1' : '0');
+			updateMuteButton();
+		}
+	});
 
-	// updating every particles or sparks in the particles array
-	if(particles.length != 0){
-		particles.forEach((particle, index) => {
-			particle.update()
-			if(particle.opacity <= 0.05){
-				particles.splice(index, 1)
-			}
-		})
-	}
+	document.addEventListener('visibilitychange', function () {
+		if (document.hidden) setPaused(true);
+	});
+	window.addEventListener('blur', function () { setPaused(true); });
+	document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+	window.addEventListener('resize', resize);
+	window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
 
-	// reseting the timer to 0 every 600ms
-	if(timer == 600){
-		timer = 0
-	}
+	// ---------------------------------------------------------------------
+	// Boot
+	// ---------------------------------------------------------------------
+	resize();
+	initFloaters();
+	updateBest();
+	updateMuteButton();
+	hud.classList.add('playing-hidden');
+	scoreEl.textContent = '0';
+	requestAnimationFrame(frame);
 
-	// func. that is used to show and hide the UI options
-	showHideOptions()
-	// increment timer by 1 every 1ms
-	timer++
-}
-// calling the func. once will make the recurrsion possible which in return will start the animations
-loop()
-
-
-// Function that is used tto push new balls to the Balls array whenever called
-function pushNewBalls(){
-	var randomPoint = randomFromArray(randPoints),
-		 randomColor = randomFromArray(colors)
-	balls.push(
-		new Ball(
-			canvas, ctx,
-			randomPoint.x, randomPoint.y,
-			globalRadius, randomColor, particles, 0, velocityOfBall, false
-		)
-	)
-}
-
-// Func. to show and hide the UI
-function showHideOptions(){
-	if(failed == true && generateBall == false){
-		retryText.classList.remove('hide')
-		retryText.classList.add('show')
-		retryBtn.classList.remove('hide')
-		retryBtn.classList.add('show')
-	}else if(failed == false && generateBall == true){
-		retryText.classList.add('hide')
-		retryText.classList.remove('show')
-		retryBtn.classList.add('hide')
-		retryBtn.classList.remove('show')
-	}
-}
-
-// Func. that returns simple color gradient by providing two colors
-function BG_Gradient(color1, color2){
-	let bg = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight)
-	bg.addColorStop(0, color1)
-	bg.addColorStop(1, color2)
-	return bg
-}
-
-// This will be called every 1000ms and the code would execute
-setInterval(() => {
-	if(velocityOfBall <= 7){
-		velocityOfBall += 0.08
-	}else{
-		velocityOfBall += 0
-	}
-}, 1500)
-
-
-// EVENT LISTENERS
-
-// Clicking on the canvas would change the color
-canvas.addEventListener('pointerdown', () => {
-	redBall.change(colors[0], colors[1])
-	blueBall.change(colors[1], colors[0])
-})
-
-// retry again by clicking the retry button
-retryBtn.addEventListener('pointerdown', () => {
-	failed = false
-	init()
-})
-
-// Start playing now.
-playBtn.addEventListener('pointerdown', () => {
-	startScreen.classList.add('hide')
-	init()
-})
-
-window.addEventListener('resize', () => {
-	if(canvasHeight >= canvasMaxHeight){
-		canvasHeight = canvasMaxHeight;
-	}else{
-		canvasHeight = innerHeight - 50		
-	}
-	canvas.height = canvasHeight
-})
+	// Small read-only hook used for automated testing (no effect on the game)
+	window.__colorCollision = {
+		get state() { return ['menu', 'play', 'dying', 'over'][state]; },
+		get score() { return score; },
+		get incoming() { return incoming ? { fromTop: incoming.fromTop, y: incoming.y, color: incoming.color } : null; },
+		get colors() { return { top: topColor, bottom: bottomColor }; },
+		get height() { return H; },
+		get radius() { return radius(); }
+	};
+})();
