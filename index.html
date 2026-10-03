@@ -2,37 +2,56 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8">
-	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta name="theme-color" content="#2c3e50">
 	<title>Color Collision</title>
-	<link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Montserrat&amp;display=swap'>
-	<link rel="stylesheet" href="./style.css">
-	
+	<link rel="stylesheet" href="style.css">
 </head>
 <body>
-	<div class="start-screen">
-		<div class="game-data">
-			<span class="name"><span>Color</span> <span>Collision</span></span>
+	<canvas id="game" aria-label="Color Collision game area"></canvas>
+
+	<div class="hud" id="hud">
+		<div class="hud-score">
+			<span class="label">SCORE</span>
+			<span class="value" id="score">0</span>
 		</div>
-		<span class="info">
-			<span class="highlight _1">FOCUS</span> is your weapon.
-Don't make the wrong move.
-Tap / click to swap the colors and save the central balls.
-Because if the central balls don't survive, you <span class="highlight _2">DIE</span>.
-Better play it <span class="highlight _3">SAFE</span> and push your score higher.
-</span>
-		<button class="btn play">PLAY</button>
+		<div class="hud-right">
+			<div class="hud-best"><span class="label">BEST</span> <span id="best">0</span></div>
+			<button class="icon-btn" id="pauseBtn" type="button" aria-label="Pause">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+			</button>
+			<button class="icon-btn" id="muteBtn" type="button" aria-label="Mute sound">
+				<svg class="ico-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+				<svg class="ico-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+			</button>
+		</div>
 	</div>
-	
-	<span class="retry-text hide" data-splitting>Game Over!</span>
-	<button class="retry-btn hide" data-splitting>RETRY</button>
-	<canvas data-canvas></canvas>
-	
-	
-	
-	<!-- partial -->
-	  <script src='https://unpkg.com/splitting/dist/splitting.min.js'></script><script  src="./script.js"></script>
-	
+
+	<div class="panel start-screen" id="startScreen">
+		<h1 class="name"><span>Color</span> <span>Collision</span></h1>
+		<p class="info">
+			<span class="highlight _1">FOCUS</span> is your weapon. Don't make the wrong move.
+			Tap, click or press Space to swap the colors of the two central balls,
+			so every incoming ball hits the one with the same color.
+			If the central balls don't survive, you <span class="highlight _2">DIE</span>.
+			Play it <span class="highlight _3">SAFE</span> and push your score higher.
+		</p>
+		<button class="btn" id="playBtn" type="button">PLAY</button>
+		<p class="best-line" id="startBest"></p>
+	</div>
+
+	<div class="panel over-screen hide" id="overScreen">
+		<h2 class="retry-text" id="overTitle">Game Over!</h2>
+		<p class="final">Score <strong id="finalScore">0</strong></p>
+		<p class="final-best" id="finalBest"></p>
+		<button class="btn" id="retryBtn" type="button">RETRY</button>
+	</div>
+
+	<div class="panel pause-screen hide" id="pauseScreen">
+		<h2 class="pause-title">Paused</h2>
+		<button class="btn" id="resumeBtn" type="button">RESUME</button>
+	</div>
+
+	<script src="script.js"></script>
 </body>
 </html>
-

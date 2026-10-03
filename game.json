@@ -3,15 +3,23 @@
   "title": "Color Collision",
   "description": "Swap the colors of two central balls so every incoming ball hits its matching color in this fast free one-tap reflex game in your browser.",
   "about": "Color Collision is a one-button reflex game about pure focus. Two balls, one red and one blue, sit in the middle of the screen. New balls fly in from the top and from the bottom, and each one must hit a central ball of the same color. A single click or tap swaps the colors of the pair, so you have to read every incoming ball and decide in a split second whether to switch.\n\nEvery correct match bursts into sparks and adds 10 points, and the score takes on the color of the last ball you matched. One wrong collision and everything explodes: game over. The balls keep getting faster as time passes, so a calm start quickly turns into a real test of timing.\n\nIt is perfect for short sessions on a phone or a computer and for anyone who loves simple rules with rising pressure.",
-  "howToPlay": "Press Play, then watch the balls coming from above and below. Click or tap anywhere to swap the colors of the two central balls so each incoming ball hits the one with the same color. Each match is worth 10 points, and a single mismatch ends the game.",
+  "howToPlay": "Press Play, then watch the balls coming from above and below. Click, tap anywhere or press Space to swap the colors of the two central balls so each incoming ball hits the one with the same color. Each match is worth 10 points, and a single mismatch ends the game. Your best score is saved in your browser.",
   "controls": [
     {
-      "input": "Click / Tap",
+      "input": "Click / Tap anywhere",
       "action": "Swap the colors of the central balls"
     },
     {
-      "input": "Click / Tap buttons",
-      "action": "Start the game and retry after a crash"
+      "input": "Space / Enter / Arrow keys",
+      "action": "Swap the colors (and start or retry from the menus)"
+    },
+    {
+      "input": "P / Esc or the pause button",
+      "action": "Pause and resume the game"
+    },
+    {
+      "input": "M or the speaker button",
+      "action": "Mute or unmute the sound"
     }
   ],
   "tips": [
@@ -32,6 +40,10 @@
     {
       "question": "Does the game get harder?",
       "answer": "Yes. The incoming balls gradually speed up the longer you survive, until they reach a top speed."
+    },
+    {
+      "question": "Is my best score saved?",
+      "answer": "Yes. Your best score is stored in your browser and shown in the top bar and on the game over screen."
     }
   ],
   "category": "Arcade",
